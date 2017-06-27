@@ -1,5 +1,11 @@
 package org.x2a.execution;
 
+import org.x2a.instruction.InstructionMod;
+import org.x2a.instruction.InstructionType;
+
+import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Stack;
 
 /**
@@ -35,15 +41,30 @@ public class ExecutionUnit {
 
     private long cyclesPerSecond;
 
+    private Map<Byte, Method> opMethods;
+
     public ExecutionUnit(long cyclesPerSecond) {
         this.cyclesPerSecond = cyclesPerSecond;
+
+        Method[] methods = this.getClass().getDeclaredMethods();
+
+        opMethods = new HashMap<>();
+
+        for (Method method : methods) {
+            Operation op = method.getDeclaredAnnotation(Operation.class);
+            if (op != null) {
+                byte code = (byte) ((op.inst().opcode() << 4) + (op.mod().opcode()));
+                opMethods.put(op.inst().opcode(), method);
+            }
+        }
+        System.out.println("finished init");
     }
 
     private byte fetch() {
         return memory[reg[IP]++];
     }
 
-    public int decode() {
+    public int fullFetch() {
         int inst = (fetch() << 8) + fetch();
         if (isTwoWords(inst)) {
             inst = inst << (WORD_SIZE * 8);
@@ -52,7 +73,19 @@ public class ExecutionUnit {
         return inst;
     }
 
+    public void decode(int inst) {
+
+    }
+
     public boolean isTwoWords(int inst) {
         return false;
+    }
+
+    @Operation(inst = InstructionType.ALU, mod = InstructionMod.ALU_ADD)
+    public void add(int inst) {
+        short dest = (short)((inst & 0x00F0) >>> 20);
+        short src = (short)((inst & 0x000F) >>> 16);
+
+        reg[dest] = (short) (reg[dest] + reg[src]);
     }
 }
