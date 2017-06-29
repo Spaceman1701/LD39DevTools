@@ -14,6 +14,9 @@ public class Emulator {
 
 
     public static void main(String[] args) throws IOException {
-
+        char a = 0x00FF;
+        char b = 0x0FFF;
+        char c = (char) (a + b);
+        System.out.println(c < a);
     }
 }

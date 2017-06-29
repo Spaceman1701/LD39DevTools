@@ -90,8 +90,22 @@ public class ExecutionUnit {
         return false;
     }
 
-    public void setStatus(short value) {
-        reg[STATUS] = value;
+    public void setStatus(short newDest) {
+        short status = 0;
+        if (newDest == 0) {
+            status |= StatusCodes.ZERO;
+        }
+        if (newDest < 0) {
+            status |= StatusCodes.SIGN;
+        }
+        reg[STATUS] = status;
+    }
+
+    public void mathSetStatus(short oldDest, short newDest, short src) {
+        setStatus(newDest);
+        if ((src < 0 == oldDest < 0) && (newDest < 0) != (oldDest < 0)) {
+            reg[STATUS] |= StatusCodes.OVERFLOW;
+        }
     }
 
     @Operation(inst = InstructionType.ALU, mod = InstructionMod.ALU_ADD)
@@ -101,9 +115,7 @@ public class ExecutionUnit {
         short oldVal = reg[dest];
         reg[dest] = (short) (reg[dest] + reg[src]);
 
-        if ((reg[dest] & 0x2000) != (oldVal & 0x2000)) {
-
-        }
+        mathSetStatus(oldVal, reg[dest], reg[src]);
 
         System.out.println("Add");
     }
@@ -113,7 +125,15 @@ public class ExecutionUnit {
         byte dest = DecodeUtils.IType.destReg(inst);
         byte src = DecodeUtils.IType.srcReg(inst);
 
-        reg[dest] = (short)(reg[dest] + reg[src]);
+        short oldValue = reg[dest];
+        char unsigned = (char) oldValue;
+        char unsignedRes = (char) (reg[dest] + reg[src]);
+        reg[dest] = (short)(unsignedRes);
+        mathSetStatus(oldValue, reg[dest], reg[src]);
+
+        if (unsignedRes < unsigned) { //must have been a carry
+            reg[STATUS] |= StatusCodes.CARRY;
+        }
     }
 
     @Operation(inst = InstructionType.ALU, mod = InstructionMod.ALU_SUB)
@@ -121,9 +141,76 @@ public class ExecutionUnit {
         byte dest = DecodeUtils.IType.destReg(inst);
         byte src = DecodeUtils.IType.srcReg(inst);
 
+        short old = reg[dest];
         reg[dest] = (short)(reg[dest] - reg[src]);
+        mathSetStatus(old, reg[dest], reg[src]);
 
         System.out.println("Sub");
+    }
+
+    @Operation(inst = InstructionType.ALU, mod = InstructionMod.ALU_SUBB)
+    public void subb(int inst) {
+        byte dest = DecodeUtils.IType.destReg(inst);
+        byte src = DecodeUtils.IType.srcReg(inst);
+
+        short old = reg[dest];
+        char unsigned = (char)old;
+        char unsignedRes = (char)(reg[dest] - reg[src]);
+
+        reg[dest] = (short)(unsignedRes);
+        mathSetStatus(old, reg[dest], reg[src]);
+
+        if (unsignedRes > unsigned) { //must be borrow
+            reg[STATUS] |= StatusCodes.CARRY;
+        }
+    }
+
+    @Operation(inst = InstructionType.ALU, mod = InstructionMod.ALU_AND)
+    public void and(int inst) {
+        byte dest = DecodeUtils.IType.destReg(inst);
+        byte src = DecodeUtils.IType.srcReg(inst);
+
+        reg[dest] &= src;
+        setStatus(reg[dest]);
+    }
+
+    @Operation(inst = InstructionType.ALU, mod = InstructionMod.ALU_OR)
+    public void or(int inst) {
+        byte dest = DecodeUtils.IType.destReg(inst);
+        byte src = DecodeUtils.IType.srcReg(inst);
+
+        reg[dest] |= src;
+        setStatus(reg[dest]);
+    }
+
+    @Operation(inst = InstructionType.ALU, mod = InstructionMod.ALU_XOR)
+    public void xor(int inst) {
+        byte dest = DecodeUtils.IType.destReg(inst);
+        byte src = DecodeUtils.IType.srcReg(inst);
+
+        reg[dest] ^= src;
+
+        setStatus(reg[dest]);
+    }
+
+    @Operation(inst = InstructionType.ALU, mod = InstructionMod.ALU_NOT)
+    public void not(int inst) {
+        byte dest = DecodeUtils.IType.destReg(inst);
+
+        reg[dest] = (short)~reg[dest];
+        setStatus(reg[dest]);
+    }
+
+    @Operation(inst = InstructionType.ALU, mod = InstructionMod.ALU_BIT)
+    public void bit(int inst) {
+        byte dest = DecodeUtils.IType.destReg(inst);
+        byte src = DecodeUtils.IType.srcReg(inst);
+
+        if (((dest >>> src) & 0x00001) != 0) {
+            reg[STATUS] = StatusCodes.BIT;
+        } else {
+            reg[STATUS] = 0;
+        }
     }
 
     @Operation(inst = InstructionType.MOV)
