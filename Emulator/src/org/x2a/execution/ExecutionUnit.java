@@ -76,13 +76,73 @@ public class ExecutionUnit {
     }
 
     public void decode(int inst) {
-        Method op = opMethods.getFirst((byte) ((inst & DecodeUtils.BYTE_3_MASK) >>> 24));
-        try {
-            op.invoke(this, inst);
-        } catch (IllegalAccessException e) {
-            e.printStackTrace();
-        } catch (InvocationTargetException e) {
-            e.printStackTrace();
+        Map<Byte, InstructionType> instMap;
+        byte fullcode = (byte) ((inst & DecodeUtils.BYTE_3_MASK) >>> DecodeUtils.BYTE_BIT_SIZE * 3);
+
+        InstructionType type = instMap.get((byte) (DecodeUtils.NIBBLE_1_MASK & fullcode));
+        if (type.conditional()) {
+            //decode conditional
+        } else {
+            Method m = opMethods.getFirst(inst);
+        }
+    }
+
+    public void decodeConditional(int inst, byte fullcode) {
+        byte condCode = (byte) (fullcode & DecodeUtils.NIBBLE_0_MASK);
+        Method m = opMethods.getFirst(inst);
+        if ((condCode == InstructionMod.COND_EQ.opcode()) ||
+                (condCode == InstructionMod.COND_LESSEQ.opcode()) ||
+                condCode == InstructionMod.COND_GREATER_EQ.opcode() ||
+                condCode == InstructionMod.COND_NABOVE.opcode() ||
+                condCode == InstructionMod.COND_NBELOW.opcode()) {
+            if ((reg[STATUS] & StatusCodes.ZERO) != 0) { // zero
+                //
+                return;
+            }
+        }
+        if ((condCode == InstructionMod.COND_NEQ.opcode()) || (condCode == InstructionMod.COND_NABOVE.opcode())) {
+            if ((reg[STATUS] & StatusCodes.ZERO) == 0) { // not zero
+                //
+                return;
+            }
+        }
+        if ((condCode == InstructionMod.COND_BELOW.opcode()) || (condCode == InstructionMod.COND_NABOVE.opcode())) {
+            if ((reg[STATUS] & StatusCodes.CARRY) != 0) { //carry
+                //
+                return;
+            }
+        }
+        if ((condCode == InstructionMod.COND_NBELOW.opcode()) || (condCode == InstructionMod.COND_ABOVE.opcode())) {
+            if ((reg[STATUS] & StatusCodes.CARRY) == 0) { //not carry
+                //
+                return;
+            }
+        }
+        if ((condCode == InstructionMod.COND_LESS.opcode()) || (condCode == InstructionMod.COND_LESSEQ.opcode())) {
+            if (((reg[STATUS] & StatusCodes.OVERFLOW) == 0) != ((reg[STATUS] & StatusCodes.SIGN) == 0)) { //sign != carry
+                return;
+            }
+        }
+        if ((condCode == InstructionMod.COND_GREATER.opcode())) {
+            if ((((reg[STATUS] & StatusCodes.OVERFLOW) == 0) == ((reg[STATUS] & StatusCodes.SIGN) == 0))
+                    && (reg[STATUS] & StatusCodes.ZERO) == 0) { //!zero && (sign == carry)
+                return;
+            }
+        }
+        if (condCode == InstructionMod.COND_GREATER_EQ.opcode()) {
+            if (((reg[STATUS] & StatusCodes.OVERFLOW) == 0) == ((reg[STATUS] & StatusCodes.SIGN) == 0)) { //sign == overflow
+                return;
+            }
+        }
+        if (condCode == InstructionMod.COND_BIT.opcode()) {
+            if ((reg[STATUS] & StatusCodes.BIT) != 0) { //bit
+                return;
+            }
+        }
+        if (condCode == InstructionMod.COND_NBIT.opcode()) {
+            if ((reg[STATUS] & StatusCodes.BIT) == 0) {
+                return;
+            }
         }
     }
 
@@ -108,6 +168,7 @@ public class ExecutionUnit {
         }
     }
 
+    //ALY
     @Operation(inst = InstructionType.ALU, mod = InstructionMod.ALU_ADD)
     public void add(int inst) {
         byte dest = DecodeUtils.IType.destReg(inst);
@@ -212,8 +273,67 @@ public class ExecutionUnit {
             reg[STATUS] = 0;
         }
     }
+    //END ALU
 
-    @Operation(inst = InstructionType.MOV)
+    @Operation(inst = InstructionType.NOP)
+    public void nop(int inst) {
+
+    }
+
+    @Operation(inst = InstructionType.VAL, mod = InstructionMod.COND_NOP)
+    public void val(int inst) {
+        byte dest = DecodeUtils.AType.destReg(inst);
+        short val = DecodeUtils.AType.value(inst);
+
+        reg[dest] = val;
+    }
+
+    @Operation(inst = InstructionType.VAL, mod = InstructionMod.COND_EQ)
+    public void valEqual(int inst) {
+        if ((reg[STATUS] & StatusCodes.ZERO) != 0) {
+            val(inst);
+        }
+    }
+
+    @Operation(inst = InstructionType.VAL, mod = InstructionMod.COND_NEQ)
+    public void valNotEqual(int inst) {
+        if ((reg[STATUS] & StatusCodes.ZERO) == 0) {
+            val(inst);
+        }
+    }
+
+    @Operation(inst = InstructionType.VAL, mod = InstructionMod.COND_BELOW)
+    public void valBelow(int inst) {
+        if ((reg[STATUS] & StatusCodes.CARRY) != 0) {
+            val(inst);
+        }
+    }
+
+    @Operation(inst = InstructionType.VAL, mod = InstructionMod.COND_NBELOW)
+    public void valNotBelow(int inst) {
+        if ((reg[STATUS] & StatusCodes.CARRY) == 0) {
+            val(inst);
+        }
+    }
+
+    @Operation(inst = InstructionType.VAL, mod = InstructionMod.COND_ABOVE)
+    public void valAbove(int inst) {
+        if ((reg[STATUS] & StatusCodes.CARRY) != 0 || (reg[STATUS] & StatusCodes.ZERO) != 0) {
+            val(inst);
+        }
+    }
+
+    @Operation(inst = InstructionType.VAL, mod = InstructionMod)
+
+    @Operation(inst = InstructionType.VAL8)
+    public void val8(int inst) {
+        byte dest = DecodeUtils.BType.destReg(inst);
+        byte val = DecodeUtils.BType.value(inst);
+
+        reg[dest] = val;
+    }
+
+    @Operation(inst = InstructionType.MOV, mod = InstructionMod.COND_NOP)
     public void mov(int inst) {
         byte dest = DecodeUtils.CType.destReg(inst);
         byte src = DecodeUtils.CType.srcReg(inst);

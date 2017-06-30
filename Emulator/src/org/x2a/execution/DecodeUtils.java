@@ -37,6 +37,10 @@ public class DecodeUtils {
     public static final int WORD_SIZE = 2;
 
 
+    public static final int OPCODE = NIBBLE_7_MASK;
+    public static final int MODCODE = NIBBLE_6_MASK;
+
+
     public static final class AType {
         private AType() {}
 

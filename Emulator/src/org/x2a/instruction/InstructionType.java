@@ -21,11 +21,17 @@ public enum InstructionType {
     INC(0xD); //this is probably supposed to be an alu op
 
     byte opcode;
-    InstructionType(int opcode) {
+    boolean conditional;
+    InstructionType(int opcode, boolean conditional) {
         this.opcode = (byte) opcode;
+        this.conditional = conditional;
     }
 
     public byte opcode() {
         return opcode;
+    }
+
+    public boolean conditional() {
+        return conditional;
     }
 }
