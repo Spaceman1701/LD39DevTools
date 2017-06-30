@@ -52,13 +52,17 @@ public class ExecutionUnit {
         Method[] methods = this.getClass().getDeclaredMethods();
 
         opMethods = new InstructionMap();
+        opCodeMap = new HashMap<>();
+
+        for (InstructionType t : InstructionType.values()) {
+            opCodeMap.put(t.opcode(), t);
+        }
 
         for (Method method : methods) {
             Operation op = method.getDeclaredAnnotation(Operation.class);
             if (op != null) {
                 byte code = (byte) ((op.inst().opcode() << 4) + (op.mod().opcode()));
                 opMethods.put(code, method);
-                opCodeMap.put((byte) ((code & 0xF0) >> 4), op.inst());
             }
         }
         System.out.println("finished init");
@@ -79,7 +83,7 @@ public class ExecutionUnit {
 
     public void decode(int inst) throws InvocationTargetException, IllegalAccessException {
         byte fullcode = (byte) ((inst & DecodeUtils.BYTE_3_MASK) >>> DecodeUtils.BYTE_BIT_SIZE * 3);
-        InstructionType type = opCodeMap.get((byte) (DecodeUtils.NIBBLE_1_MASK & fullcode));
+        InstructionType type = opCodeMap.get((byte) ((DecodeUtils.NIBBLE_1_MASK & fullcode) >>> 4));
         Method m = opMethods.getFirst(inst);
         if (type.conditional()) {
             decodeConditional(inst, fullcode, m);
@@ -90,6 +94,10 @@ public class ExecutionUnit {
 
     public void decodeConditional(int inst, byte fullcode, Method m) throws InvocationTargetException, IllegalAccessException {
         byte condCode = (byte) (fullcode & DecodeUtils.NIBBLE_0_MASK);
+        if (condCode == InstructionMod.COND_NOP.opcode()) {
+            m.invoke(this, inst);
+            return;
+        }
         if ((condCode == InstructionMod.COND_EQ.opcode()) ||
                 (condCode == InstructionMod.COND_LESSEQ.opcode()) ||
                 condCode == InstructionMod.COND_GREATER_EQ.opcode() ||
