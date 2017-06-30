@@ -44,6 +44,7 @@ public class ExecutionUnit {
     private long cyclesPerSecond;
 
     private InstructionMap opMethods;
+    private Map<Byte, InstructionType> opCodeMap;
 
     public ExecutionUnit(long cyclesPerSecond) {
         this.cyclesPerSecond = cyclesPerSecond;
@@ -57,6 +58,7 @@ public class ExecutionUnit {
             if (op != null) {
                 byte code = (byte) ((op.inst().opcode() << 4) + (op.mod().opcode()));
                 opMethods.put(code, method);
+                opCodeMap.put((byte) ((code & 0xF0) >> 4), op.inst());
             }
         }
         System.out.println("finished init");
@@ -75,72 +77,75 @@ public class ExecutionUnit {
         return inst;
     }
 
-    public void decode(int inst) {
-        Map<Byte, InstructionType> instMap;
+    public void decode(int inst) throws InvocationTargetException, IllegalAccessException {
         byte fullcode = (byte) ((inst & DecodeUtils.BYTE_3_MASK) >>> DecodeUtils.BYTE_BIT_SIZE * 3);
-
-        InstructionType type = instMap.get((byte) (DecodeUtils.NIBBLE_1_MASK & fullcode));
+        InstructionType type = opCodeMap.get((byte) (DecodeUtils.NIBBLE_1_MASK & fullcode));
+        Method m = opMethods.getFirst(inst);
         if (type.conditional()) {
-            //decode conditional
+            decodeConditional(inst, fullcode, m);
         } else {
-            Method m = opMethods.getFirst(inst);
+            m.invoke(this, inst, null);
         }
     }
 
-    public void decodeConditional(int inst, byte fullcode) {
+    public void decodeConditional(int inst, byte fullcode, Method m) throws InvocationTargetException, IllegalAccessException {
         byte condCode = (byte) (fullcode & DecodeUtils.NIBBLE_0_MASK);
-        Method m = opMethods.getFirst(inst);
         if ((condCode == InstructionMod.COND_EQ.opcode()) ||
                 (condCode == InstructionMod.COND_LESSEQ.opcode()) ||
                 condCode == InstructionMod.COND_GREATER_EQ.opcode() ||
                 condCode == InstructionMod.COND_NABOVE.opcode() ||
                 condCode == InstructionMod.COND_NBELOW.opcode()) {
             if ((reg[STATUS] & StatusCodes.ZERO) != 0) { // zero
-                //
+                m.invoke(this, inst);
                 return;
             }
         }
         if ((condCode == InstructionMod.COND_NEQ.opcode()) || (condCode == InstructionMod.COND_NABOVE.opcode())) {
             if ((reg[STATUS] & StatusCodes.ZERO) == 0) { // not zero
-                //
+                m.invoke(this, inst);
                 return;
             }
         }
         if ((condCode == InstructionMod.COND_BELOW.opcode()) || (condCode == InstructionMod.COND_NABOVE.opcode())) {
             if ((reg[STATUS] & StatusCodes.CARRY) != 0) { //carry
-                //
+                m.invoke(this, inst);
                 return;
             }
         }
         if ((condCode == InstructionMod.COND_NBELOW.opcode()) || (condCode == InstructionMod.COND_ABOVE.opcode())) {
             if ((reg[STATUS] & StatusCodes.CARRY) == 0) { //not carry
-                //
+                m.invoke(this, inst);
                 return;
             }
         }
         if ((condCode == InstructionMod.COND_LESS.opcode()) || (condCode == InstructionMod.COND_LESSEQ.opcode())) {
             if (((reg[STATUS] & StatusCodes.OVERFLOW) == 0) != ((reg[STATUS] & StatusCodes.SIGN) == 0)) { //sign != carry
+                m.invoke(this, inst);
                 return;
             }
         }
         if ((condCode == InstructionMod.COND_GREATER.opcode())) {
             if ((((reg[STATUS] & StatusCodes.OVERFLOW) == 0) == ((reg[STATUS] & StatusCodes.SIGN) == 0))
                     && (reg[STATUS] & StatusCodes.ZERO) == 0) { //!zero && (sign == carry)
+                m.invoke(this, inst);
                 return;
             }
         }
         if (condCode == InstructionMod.COND_GREATER_EQ.opcode()) {
             if (((reg[STATUS] & StatusCodes.OVERFLOW) == 0) == ((reg[STATUS] & StatusCodes.SIGN) == 0)) { //sign == overflow
+                m.invoke(this, inst);
                 return;
             }
         }
         if (condCode == InstructionMod.COND_BIT.opcode()) {
             if ((reg[STATUS] & StatusCodes.BIT) != 0) { //bit
+                m.invoke(this, inst);
                 return;
             }
         }
         if (condCode == InstructionMod.COND_NBIT.opcode()) {
             if ((reg[STATUS] & StatusCodes.BIT) == 0) {
+                m.invoke(this, inst);
                 return;
             }
         }
@@ -287,43 +292,6 @@ public class ExecutionUnit {
 
         reg[dest] = val;
     }
-
-    @Operation(inst = InstructionType.VAL, mod = InstructionMod.COND_EQ)
-    public void valEqual(int inst) {
-        if ((reg[STATUS] & StatusCodes.ZERO) != 0) {
-            val(inst);
-        }
-    }
-
-    @Operation(inst = InstructionType.VAL, mod = InstructionMod.COND_NEQ)
-    public void valNotEqual(int inst) {
-        if ((reg[STATUS] & StatusCodes.ZERO) == 0) {
-            val(inst);
-        }
-    }
-
-    @Operation(inst = InstructionType.VAL, mod = InstructionMod.COND_BELOW)
-    public void valBelow(int inst) {
-        if ((reg[STATUS] & StatusCodes.CARRY) != 0) {
-            val(inst);
-        }
-    }
-
-    @Operation(inst = InstructionType.VAL, mod = InstructionMod.COND_NBELOW)
-    public void valNotBelow(int inst) {
-        if ((reg[STATUS] & StatusCodes.CARRY) == 0) {
-            val(inst);
-        }
-    }
-
-    @Operation(inst = InstructionType.VAL, mod = InstructionMod.COND_ABOVE)
-    public void valAbove(int inst) {
-        if ((reg[STATUS] & StatusCodes.CARRY) != 0 || (reg[STATUS] & StatusCodes.ZERO) != 0) {
-            val(inst);
-        }
-    }
-
-    @Operation(inst = InstructionType.VAL, mod = InstructionMod)
 
     @Operation(inst = InstructionType.VAL8)
     public void val8(int inst) {

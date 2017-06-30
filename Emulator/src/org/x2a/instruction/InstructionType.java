@@ -5,20 +5,20 @@ package org.x2a.instruction;
  */
 public enum InstructionType {
 
-    NOP(0x0),
-    VAL(0x1),
-    VAL8(0x2),
-    MOV(0x3),
-    JMP(0x4),
-    LOOP(0x5),
-    LD(0x6),
-    STR(0x7),
-    PUSH(0x8),
-    POP(0x9),
-    CALL(0xA),
-    RET(0xB),
-    ALU(0xC),
-    INC(0xD); //this is probably supposed to be an alu op
+    NOP(0x0, false),
+    VAL(0x1, true),
+    VAL8(0x2, false),
+    MOV(0x3, true),
+    JMP(0x4, true),
+    LOOP(0x5, false),
+    LD(0x6, false),
+    STR(0x7, false),
+    PUSH(0x8, false),
+    POP(0x9, false),
+    CALL(0xA, false),
+    RET(0xB, false),
+    ALU(0xC, false),
+    INC(0xD, false); //this is probably supposed to be an alu op
 
     byte opcode;
     boolean conditional;
