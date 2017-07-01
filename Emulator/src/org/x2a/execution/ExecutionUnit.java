@@ -36,8 +36,8 @@ public class ExecutionUnit {
 
     public static final short NULL = 0x0;
 
-    private byte[] memory = new byte[0xFFFF];
-    private short[] reg = new short[0x10];
+    public byte[] memory = new byte[0xFFFF];
+    public short[] reg = new short[0x10];
 
     private Stack<Object> stackTrace; //for debug
 
@@ -88,7 +88,7 @@ public class ExecutionUnit {
         if (type.conditional()) {
             decodeConditional(inst, fullcode, m);
         } else {
-            m.invoke(this, inst, null);
+            m.invoke(this, inst);
         }
     }
 
