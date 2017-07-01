@@ -92,6 +92,19 @@ public class ExecutionUnit {
         }
     }
 
+    public void step() {
+        int inst = fullFetch();
+        try {
+            decode(inst);
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        }
+    }
+
     public void decodeConditional(int inst, byte fullcode, Method m) throws InvocationTargetException, IllegalAccessException {
         byte condCode = (byte) (fullcode & DecodeUtils.NIBBLE_0_MASK);
         if (condCode == InstructionMod.COND_NOP.opcode()) {
@@ -159,8 +172,10 @@ public class ExecutionUnit {
         }
     }
 
-    public boolean isTwoWords(int inst) {
-        return false;
+    public boolean isTwoWords(int inst) { //TODO: this does a hashmap lookup that is redundant
+        byte fullcode = (byte) ((inst & DecodeUtils.BYTE_3_MASK) >>> DecodeUtils.BYTE_BIT_SIZE * 3);
+        InstructionType type = opCodeMap.get((byte) ((DecodeUtils.NIBBLE_1_MASK & fullcode) >>> 4));
+        return type.size() == 4;
     }
 
     public void setStatus(short newDest) {
