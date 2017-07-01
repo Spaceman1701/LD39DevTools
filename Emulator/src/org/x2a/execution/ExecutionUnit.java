@@ -318,4 +318,98 @@ public class ExecutionUnit {
 
         System.out.println("Mov");
     }
+
+    @Operation(inst = InstructionType.JMP, mod = InstructionMod.COND_NOP)
+    public void jmp(int inst) {
+        byte val = DecodeUtils.DType.value(inst);
+        reg[IP] = val;
+    }
+
+    @Operation(inst = InstructionType.LOOP)
+    public void loop(int inst) {
+        byte dest = DecodeUtils.BType.destReg(inst);
+        byte val = DecodeUtils.BType.value(inst);
+        if (reg[dest] != 0) {
+            reg[IP] = val;
+        }
+    }
+
+    @Operation(inst = InstructionType.LD)
+    public void ld(int inst) {
+        byte dest = DecodeUtils.EType.reg(inst);
+        byte src = DecodeUtils.EType.ptrReg(inst);
+
+        byte higher = memory[reg[src]];
+        byte lower = memory[reg[src] + 1];
+        reg[dest] = (short) ((higher << DecodeUtils.BYTE_BIT_SIZE) + lower);
+
+    }
+
+    @Operation(inst = InstructionType.STR)
+    public void str(int inst) {
+        byte dest = DecodeUtils.EType.ptrReg(inst);
+        byte src = DecodeUtils.EType.reg(inst);
+
+        short val =  reg[src];
+        byte upper = (byte) ((val & DecodeUtils.NIBBLE_1_MASK) >> DecodeUtils.NIBBLE_BIT_SIZE);
+        byte lower = (byte) (val & DecodeUtils.NIBBLE_0_MASK);
+        memory[reg[src]] = upper;
+        memory[reg[src] + 1] = lower; //TODO: confirm with David that this is correct
+    }
+
+    @Operation(inst = InstructionType.PUSH)
+    public void push(int inst) {
+        byte src = DecodeUtils.FType.reg(inst);
+
+        short val = reg[src];
+        pushValue(val);
+
+    }
+
+    public void pushValue(short val) {
+        byte upper = (byte) ((val & DecodeUtils.NIBBLE_1_MASK) >> DecodeUtils.NIBBLE_BIT_SIZE);
+        byte lower = (byte) (val & DecodeUtils.NIBBLE_0_MASK);
+
+        reg[SP] += WORD_SIZE;
+
+        memory[reg[SP]] = upper;
+        memory[reg[SP] + 1] = lower;
+    }
+
+    @Operation(inst = InstructionType.POP)
+    public void pop(int inst) {
+        byte dest = DecodeUtils.FType.reg(inst);
+        reg[dest] = popValue();
+
+        reg[SP] -= WORD_SIZE;
+    }
+
+    public short popValue() {
+        byte higher = memory[reg[SP]];
+        byte lower = memory[reg[SP] + 1];
+        return (short) ((higher << DecodeUtils.BYTE_BIT_SIZE) + lower);
+    }
+
+    @Operation(inst = InstructionType.CALL)
+    public void call(int inst) {
+        short address = DecodeUtils.GType.val(inst);
+
+        pushValue(reg[IP]);
+
+        reg[IP] = address;
+    }
+
+    @Operation(inst = InstructionType.RET)
+    public void ret(int inst) {
+        short ip = popValue();
+        reg[IP] = ip;
+    }
+
+    @Operation(inst = InstructionType.INC)
+    public void inc(int inst) {
+        byte dest = DecodeUtils.BType.destReg(inst);
+        byte val = DecodeUtils.BType.value(inst);
+
+        reg[dest] += val;
+    }
 }
