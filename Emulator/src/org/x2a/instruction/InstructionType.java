@@ -23,6 +23,7 @@ public enum InstructionType {
     byte opcode;
     boolean conditional;
     int size;
+
     InstructionType(int opcode, boolean conditional, int size) {
         this.opcode = (byte) opcode;
         this.conditional = conditional;

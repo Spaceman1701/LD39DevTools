@@ -1,6 +1,5 @@
 package org.x2a.execution;
 
-import org.x2a.instruction.Instruction;
 import org.x2a.instruction.InstructionMod;
 import org.x2a.instruction.InstructionType;
 
@@ -44,7 +43,8 @@ public class ExecutionUnit {
     private long cyclesPerSecond;
 
     private InstructionMap opMethods;
-    private Map<Byte, InstructionType> opCodeMap;
+
+    private InstructionType[] opcodes;
 
     public ExecutionUnit(long cyclesPerSecond) {
         this.cyclesPerSecond = cyclesPerSecond;
@@ -52,24 +52,25 @@ public class ExecutionUnit {
         Method[] methods = this.getClass().getDeclaredMethods();
 
         opMethods = new InstructionMap();
-        opCodeMap = new HashMap<>();
+
+        opcodes = new InstructionType[InstructionType.values().length];
 
         for (InstructionType t : InstructionType.values()) {
-            opCodeMap.put(t.opcode(), t);
+            opcodes[t.opcode()] = t;
         }
 
         for (Method method : methods) {
             Operation op = method.getDeclaredAnnotation(Operation.class);
             if (op != null) {
-                byte code = (byte) ((op.inst().opcode() << 4) + (op.mod().opcode()));
+                int code = ((op.inst().opcode() << 28) + (op.mod().opcode() << 24));
                 opMethods.put(code, method);
             }
         }
         System.out.println("finished init");
     }
 
-    private byte fetch() {
-        return memory[reg[IP]++];
+    private int fetch() {
+        return (memory[reg[IP]++] & 0xFF);
     }
 
     public int fullFetch() {
@@ -83,8 +84,8 @@ public class ExecutionUnit {
 
     public void decode(int inst) throws InvocationTargetException, IllegalAccessException {
         byte fullcode = (byte) ((inst & DecodeUtils.BYTE_3_MASK) >>> DecodeUtils.BYTE_BIT_SIZE * 3);
-        InstructionType type = opCodeMap.get((byte) ((DecodeUtils.NIBBLE_1_MASK & fullcode) >>> 4));
-        Method m = opMethods.getFirst(inst);
+        InstructionType type = opcodes[(byte) ((DecodeUtils.NIBBLE_1_MASK & fullcode) >>> 4)];
+        Method m = opMethods.get(inst);
         if (type.conditional()) {
             decodeConditional(inst, fullcode, m);
         } else {
@@ -103,6 +104,12 @@ public class ExecutionUnit {
             e.printStackTrace();
             throw new RuntimeException(e);
         }
+    }
+
+    public boolean isTwoWords(int inst) { //TODO: this does a hashmap lookup that is redundant
+        byte fullcode = (byte) ((inst & DecodeUtils.BYTE_3_MASK) >>> DecodeUtils.BYTE_BIT_SIZE * 3);
+        InstructionType type = opcodes[(byte) ((DecodeUtils.NIBBLE_1_MASK & fullcode) >>> 4)];
+        return type.size() == 4;
     }
 
     public void decodeConditional(int inst, byte fullcode, Method m) throws InvocationTargetException, IllegalAccessException {
@@ -172,12 +179,6 @@ public class ExecutionUnit {
         }
     }
 
-    public boolean isTwoWords(int inst) { //TODO: this does a hashmap lookup that is redundant
-        byte fullcode = (byte) ((inst & DecodeUtils.BYTE_3_MASK) >>> DecodeUtils.BYTE_BIT_SIZE * 3);
-        InstructionType type = opCodeMap.get((byte) ((DecodeUtils.NIBBLE_1_MASK & fullcode) >>> 4));
-        return type.size() == 4;
-    }
-
     public void setStatus(short newDest) {
         short status = 0;
         if (newDest == 0) {
@@ -191,7 +192,7 @@ public class ExecutionUnit {
 
     public void mathSetStatus(short oldDest, short newDest, short src) {
         setStatus(newDest);
-        if ((src < 0 == oldDest < 0) && (newDest < 0) != (oldDest < 0)) {
+        if ((src < 0 == oldDest < 0) && (newDest < 0) != (oldDest < 0)) { //sign bit is different
             reg[STATUS] |= StatusCodes.OVERFLOW;
         }
     }
@@ -199,20 +200,8 @@ public class ExecutionUnit {
     //ALY
     @Operation(inst = InstructionType.ALU, mod = InstructionMod.ALU_ADD)
     public void add(int inst) {
-        byte dest = DecodeUtils.IType.destReg(inst);
-        byte src = DecodeUtils.IType.srcReg(inst);
-        short oldVal = reg[dest];
-        reg[dest] = (short) (reg[dest] + reg[src]);
-
-        mathSetStatus(oldVal, reg[dest], reg[src]);
-
-        System.out.println("Add");
-    }
-
-    @Operation(inst = InstructionType.ALU, mod = InstructionMod.ALU_ADDC)
-    public void addc(int inst) {
-        byte dest = DecodeUtils.IType.destReg(inst);
-        byte src = DecodeUtils.IType.srcReg(inst);
+        byte dest = DecodeUtils.CType.destReg(inst);
+        byte src = DecodeUtils.CType.srcReg(inst);
 
         short oldValue = reg[dest];
         char unsigned = (char) oldValue;
@@ -225,22 +214,30 @@ public class ExecutionUnit {
         }
     }
 
-    @Operation(inst = InstructionType.ALU, mod = InstructionMod.ALU_SUB)
-    public void sub(int inst) {
-        byte dest = DecodeUtils.IType.destReg(inst);
-        byte src = DecodeUtils.IType.srcReg(inst);
+    @Operation(inst = InstructionType.ALU, mod = InstructionMod.ALU_ADDC)
+    public void addc(int inst) {
+        byte dest = DecodeUtils.CType.destReg(inst);
+        byte src = DecodeUtils.CType.srcReg(inst);
 
-        short old = reg[dest];
-        reg[dest] = (short)(reg[dest] - reg[src]);
-        mathSetStatus(old, reg[dest], reg[src]);
+        short oldValue = reg[dest];
+        char unsigned = (char) oldValue;
+        char carry = 0;
+        if (StatusCodes.isCarry(reg[STATUS])) {
+            carry = 1;
+        }
+        char unsignedRes = (char) (reg[dest] + reg[src] + carry);
+        reg[dest] = (short)(unsignedRes);
+        mathSetStatus(oldValue, reg[dest], reg[src]);
 
-        System.out.println("Sub");
+        if (unsignedRes < unsigned) { //must have been a carry
+            reg[STATUS] |= StatusCodes.CARRY;
+        }
     }
 
-    @Operation(inst = InstructionType.ALU, mod = InstructionMod.ALU_SUBB)
-    public void subb(int inst) {
-        byte dest = DecodeUtils.IType.destReg(inst);
-        byte src = DecodeUtils.IType.srcReg(inst);
+    @Operation(inst = InstructionType.ALU, mod = InstructionMod.ALU_SUB)
+    public void sub(int inst) {
+        byte dest = DecodeUtils.CType.destReg(inst);
+        byte src = DecodeUtils.CType.srcReg(inst);
 
         short old = reg[dest];
         char unsigned = (char)old;
@@ -252,12 +249,35 @@ public class ExecutionUnit {
         if (unsignedRes > unsigned) { //must be borrow
             reg[STATUS] |= StatusCodes.CARRY;
         }
+
+        System.out.println("Sub");
+    }
+
+    @Operation(inst = InstructionType.ALU, mod = InstructionMod.ALU_SUBB)
+    public void subb(int inst) {
+        byte dest = DecodeUtils.CType.destReg(inst);
+        byte src = DecodeUtils.CType.srcReg(inst);
+
+        short old = reg[dest];
+        char unsigned = (char)old;
+        char carry = 0;
+        if (StatusCodes.isCarry(reg[STATUS])) {
+            carry = 1;
+        }
+        char unsignedRes = (char)(reg[dest] - reg[src] - carry);
+
+        reg[dest] = (short)(unsignedRes);
+        mathSetStatus(old, reg[dest], reg[src]);
+
+        if (unsignedRes > unsigned) { //must be borrow
+            reg[STATUS] |= StatusCodes.CARRY;
+        }
     }
 
     @Operation(inst = InstructionType.ALU, mod = InstructionMod.ALU_AND)
     public void and(int inst) {
-        byte dest = DecodeUtils.IType.destReg(inst);
-        byte src = DecodeUtils.IType.srcReg(inst);
+        byte dest = DecodeUtils.CType.destReg(inst);
+        byte src = DecodeUtils.CType.srcReg(inst);
 
         reg[dest] &= src;
         setStatus(reg[dest]);
@@ -265,8 +285,8 @@ public class ExecutionUnit {
 
     @Operation(inst = InstructionType.ALU, mod = InstructionMod.ALU_OR)
     public void or(int inst) {
-        byte dest = DecodeUtils.IType.destReg(inst);
-        byte src = DecodeUtils.IType.srcReg(inst);
+        byte dest = DecodeUtils.CType.destReg(inst);
+        byte src = DecodeUtils.CType.srcReg(inst);
 
         reg[dest] |= src;
         setStatus(reg[dest]);
@@ -274,8 +294,8 @@ public class ExecutionUnit {
 
     @Operation(inst = InstructionType.ALU, mod = InstructionMod.ALU_XOR)
     public void xor(int inst) {
-        byte dest = DecodeUtils.IType.destReg(inst);
-        byte src = DecodeUtils.IType.srcReg(inst);
+        byte dest = DecodeUtils.CType.destReg(inst);
+        byte src = DecodeUtils.CType.srcReg(inst);
 
         reg[dest] ^= src;
 
@@ -284,7 +304,7 @@ public class ExecutionUnit {
 
     @Operation(inst = InstructionType.ALU, mod = InstructionMod.ALU_NOT)
     public void not(int inst) {
-        byte dest = DecodeUtils.IType.destReg(inst);
+        byte dest = DecodeUtils.CType.destReg(inst);
 
         reg[dest] = (short)~reg[dest];
         setStatus(reg[dest]);
@@ -292,8 +312,8 @@ public class ExecutionUnit {
 
     @Operation(inst = InstructionType.ALU, mod = InstructionMod.ALU_BIT)
     public void bit(int inst) {
-        byte dest = DecodeUtils.IType.destReg(inst);
-        byte src = DecodeUtils.IType.srcReg(inst);
+        byte dest = DecodeUtils.CType.destReg(inst);
+        byte src = DecodeUtils.CType.srcReg(inst);
 
         if (((dest >>> src) & 0x00001) != 0) {
             reg[STATUS] = StatusCodes.BIT;
@@ -331,7 +351,7 @@ public class ExecutionUnit {
 
         reg[dest] = reg[src];
 
-        System.out.println("Mov");
+        //System.out.println("Mov");
     }
 
     @Operation(inst = InstructionType.JMP, mod = InstructionMod.COND_NOP)
@@ -368,8 +388,8 @@ public class ExecutionUnit {
         short val =  reg[src];
         byte upper = (byte) ((val & DecodeUtils.NIBBLE_1_MASK) >> DecodeUtils.NIBBLE_BIT_SIZE);
         byte lower = (byte) (val & DecodeUtils.NIBBLE_0_MASK);
-        memory[reg[src]] = upper;
-        memory[reg[src] + 1] = lower; //TODO: confirm with David that this is correct
+        memory[reg[dest]] = upper;
+        memory[reg[dest] + 1] = lower; //TODO: confirm with David that this is correct
     }
 
     @Operation(inst = InstructionType.PUSH)
