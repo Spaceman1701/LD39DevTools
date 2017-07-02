@@ -66,7 +66,6 @@ public class ExecutionUnit {
                 opMethods.put(code, method);
             }
         }
-        System.out.println("finished init");
     }
 
     private int fetch() {
@@ -249,8 +248,6 @@ public class ExecutionUnit {
         if (unsignedRes > unsigned) { //must be borrow
             reg[STATUS] |= StatusCodes.CARRY;
         }
-
-        System.out.println("Sub");
     }
 
     @Operation(inst = InstructionType.ALU, mod = InstructionMod.ALU_SUBB)
@@ -279,7 +276,7 @@ public class ExecutionUnit {
         byte dest = DecodeUtils.CType.destReg(inst);
         byte src = DecodeUtils.CType.srcReg(inst);
 
-        reg[dest] &= src;
+        reg[dest] = (short) (reg[dest] & reg[src]);
         setStatus(reg[dest]);
     }
 
@@ -288,7 +285,7 @@ public class ExecutionUnit {
         byte dest = DecodeUtils.CType.destReg(inst);
         byte src = DecodeUtils.CType.srcReg(inst);
 
-        reg[dest] |= src;
+        reg[dest] |= reg[src];
         setStatus(reg[dest]);
     }
 
@@ -297,7 +294,7 @@ public class ExecutionUnit {
         byte dest = DecodeUtils.CType.destReg(inst);
         byte src = DecodeUtils.CType.srcReg(inst);
 
-        reg[dest] ^= src;
+        reg[dest] ^= reg[src];
 
         setStatus(reg[dest]);
     }
@@ -306,7 +303,7 @@ public class ExecutionUnit {
     public void not(int inst) {
         byte dest = DecodeUtils.CType.destReg(inst);
 
-        reg[dest] = (short)~reg[dest];
+        reg[dest] = (short)((int)(~reg[dest] & 0xFFFF));
         setStatus(reg[dest]);
     }
 
@@ -315,7 +312,7 @@ public class ExecutionUnit {
         byte dest = DecodeUtils.CType.destReg(inst);
         byte src = DecodeUtils.CType.srcReg(inst);
 
-        if (((dest >>> src) & 0x00001) != 0) {
+        if (((reg[dest] >>> reg[src]) & 0x0001) != 0) {
             reg[STATUS] = StatusCodes.BIT;
         } else {
             reg[STATUS] = 0;
