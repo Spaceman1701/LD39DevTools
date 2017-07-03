@@ -5,8 +5,6 @@ import org.x2a.instruction.InstructionType;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Stack;
 
 /**
@@ -42,28 +40,28 @@ public class ExecutionUnit {
 
     private long cyclesPerSecond;
 
-    private InstructionMap opMethods;
-
     private InstructionType[] opcodes;
+    private Method[] opTable;
 
     public ExecutionUnit(long cyclesPerSecond) {
         this.cyclesPerSecond = cyclesPerSecond;
 
         Method[] methods = this.getClass().getDeclaredMethods();
 
-        opMethods = new InstructionMap();
 
         opcodes = new InstructionType[InstructionType.values().length];
 
         for (InstructionType t : InstructionType.values()) {
             opcodes[t.opcode()] = t;
         }
+        opTable = new Method[256];
 
         for (Method method : methods) {
             Operation op = method.getDeclaredAnnotation(Operation.class);
             if (op != null) {
-                int code = ((op.inst().opcode() << 28) + (op.mod().opcode() << 24));
-                opMethods.put(code, method);
+                byte opcode = (byte) ((op.inst().opcode() << 4) + (op.mod().opcode()));
+                int index = opcode & 0xFF;
+                opTable[index] = method;
             }
         }
     }
@@ -84,7 +82,14 @@ public class ExecutionUnit {
     public void decode(int inst) throws InvocationTargetException, IllegalAccessException {
         byte fullcode = (byte) ((inst & DecodeUtils.BYTE_3_MASK) >>> DecodeUtils.BYTE_BIT_SIZE * 3);
         InstructionType type = opcodes[(byte) ((DecodeUtils.NIBBLE_1_MASK & fullcode) >>> 4)];
-        Method m = opMethods.get(inst);
+        Method m;
+        if (type.size() == WORD_SIZE) {
+            int opcode = (fullcode & 0xF0);
+            m = opTable[opcode];
+        } else {
+            int opcode = fullcode & 0xFF;
+            m = opTable[opcode];
+        }
         if (type.conditional()) {
             decodeConditional(inst, fullcode, m);
         } else {

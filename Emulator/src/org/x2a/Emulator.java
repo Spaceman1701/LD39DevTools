@@ -30,7 +30,7 @@ public class Emulator {
 
 
         long start = System.currentTimeMillis();
-        for (int i = 0; i < 30000000; i++) {
+        for (int i = 0; i < 40000000; i++) {
             eu.step();
         }
         long time = System.currentTimeMillis() - start;
