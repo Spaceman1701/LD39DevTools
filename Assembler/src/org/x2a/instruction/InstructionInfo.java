@@ -75,6 +75,9 @@ public enum InstructionInfo {
     NOT(0xC, 0x7, REGISTER, REGISTER),
     BIT(0xC, 0x8, REGISTER, REGISTER),
 
+    CMP(0xC, 0x9, REGISTER, REGISTER),
+    TST(0xC, 0xA, REGISTER, REGISTER),
+
     INCR(0xD, -0x1, BYTE, NONE);
 
     int op;
@@ -110,5 +113,25 @@ public enum InstructionInfo {
 
     public boolean hasModifier() {
         return modifier;
+    }
+
+    public int paramCount() {
+        int count = 0;
+        if (left != NONE) {
+            count++;
+        }
+        if (right != NONE) {
+            count++;
+        }
+        return count;
+    }
+
+    public static InstructionInfo fromString(String s) {
+        for (InstructionInfo inst : values()) {
+            if (inst.toString().toLowerCase().equals(s.toLowerCase())) {
+                return inst;
+            }
+        }
+        throw new IllegalArgumentException(s + " is not an instruction");
     }
 }
