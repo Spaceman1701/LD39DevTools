@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
  * Created by ethan on 7/3/17.
  */
 public class DataSectionParser implements SectionParser{
-    private static final Pattern strPattern = Pattern.compile("([\"'])(?:(?=(\\?))\2.)*?\1"); //what a regex
+    private static final Pattern strPattern = Pattern.compile("\"([^\"]*)\""); //what a regex
 
     private Map<String, int[]> vars;
 
@@ -73,6 +73,7 @@ public class DataSectionParser implements SectionParser{
 
     private void parseString(String line) throws SyntaxException{
         Matcher matcher = strPattern.matcher(line);
+        matcher.find();
         String match = matcher.group();
         if (match.length() == 0) {
             throw new SyntaxException("cannot allocate space for an empty string");

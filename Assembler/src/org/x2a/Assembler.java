@@ -29,7 +29,7 @@ public class Assembler {
             ObjectOutputStream os = new ObjectOutputStream(fos);
             os.writeObject(obj);
         }
-        ParsedObject loaded = null;
+        ParsedObject loaded;
         try (FileInputStream fis = new FileInputStream(file)) {
             ObjectInputStream ois = new ObjectInputStream(fis);
             loaded = (ParsedObject) ois.readObject();

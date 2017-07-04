@@ -5,6 +5,7 @@
 
 .data
     aNumber 8
+    aWord "Hello"
     some_space [10]
 
 .text
@@ -35,8 +36,8 @@ print_hello:
             val r4, 1
         end:
             str r1, r3
-            incr r0
-            incr r1
+            incr r0, 1
+            incr r1, 1
     loop r4, head
 
     mov sp, bp

@@ -31,6 +31,10 @@ public class ParsedInstruction implements Serializable{
         return info;
     }
 
+    public int getSize() {
+        return info.size();
+    }
+
     @Override
     public String toString() {
         String leftstr = "";
