@@ -35,6 +35,34 @@ public class ParsedObject implements Serializable{
         constructSymbolTables();
     }
 
+    public int getRelativeLocation(ParsedInstruction instruction) {
+        int location = 0;
+        for (ParsedInstruction inst : textSection.getInstructions()) {
+            if (!inst.equals(instruction)) {
+                location += inst.getSize();
+            } else {
+                break;
+            }
+        }
+        return location;
+    }
+
+    public Map<String, ParsedInstruction> getExportedSymbols() {
+        return exportedSymbols;
+    }
+
+    public Map<String, ParsedInstruction> getLocalSymbols() {
+        return localSymbols;
+    }
+
+    public Map<String, int[]> getExportedDataSymbols() {
+        return exportedDataSymbols;
+    }
+
+    public Map<String, int[]> getLocalDataSymbols() {
+        return localDataSymbols;
+    }
+
     private void constructSymbolTables() throws SyntaxException { //TODO: might not catch multiple definitions correctly
         List<String> exports = infoSection.getExports();
         Map<String, ParsedInstruction> textTable = textSection.getSymbols();
