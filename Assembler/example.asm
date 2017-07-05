@@ -3,11 +3,13 @@
 
     start _main
 
+    export print_hello
+    export _main
+    export aWord
 .data
     aNumber 8
     aWord "Hello"
     some_space [10]
-
 .text
 
 _main:

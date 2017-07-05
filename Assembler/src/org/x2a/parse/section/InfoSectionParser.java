@@ -2,6 +2,9 @@ package org.x2a.parse.section;
 
 import org.x2a.parse.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Created by ethan on 7/3/17.
  */
@@ -9,6 +12,12 @@ public class InfoSectionParser implements SectionParser {
     private boolean autoOffset;
     private int offset = Integer.MAX_VALUE;
     private String start;
+
+    private List<String> exports;
+
+    public InfoSectionParser() {
+        exports = new ArrayList<>();
+    }
 
 
     @Override
@@ -18,7 +27,17 @@ public class InfoSectionParser implements SectionParser {
             parseOffset(line);
         } else if (line.startsWith("start ")) {
             parseStart(line);
+        } else if (line.startsWith("export ")) {
+            parseExport(line);
         }
+    }
+
+    private void parseExport(String line) throws SyntaxException {
+        String[] data = line.split(" ");
+        if (data.length != 2) {
+            throw new SyntaxException("expected 2 tokens, found: " + data.length);
+        }
+        exports.add(data[1]);
     }
 
     private void parseStart(String line) throws SyntaxException {
@@ -58,6 +77,6 @@ public class InfoSectionParser implements SectionParser {
     @Override
     public
     Section buildSection() {
-        return new InfoSection(offset, autoOffset, start);
+        return new InfoSection(offset, autoOffset, start, exports);
     }
 }

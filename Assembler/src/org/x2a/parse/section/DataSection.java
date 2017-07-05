@@ -13,4 +13,8 @@ public class DataSection implements Section, Serializable{
     public DataSection(Map<String, int[]> data) {
         this.data = data;
     }
+
+    public Map<String, int[]> getData() {
+        return data;
+    }
 }

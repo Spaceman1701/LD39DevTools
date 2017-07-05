@@ -117,6 +117,6 @@ public class TextSectionParser implements SectionParser {
 
     @Override
     public Section buildSection() {
-        return new TextSection(instructions);
+        return new TextSection(instructions, symbols);
     }
 }

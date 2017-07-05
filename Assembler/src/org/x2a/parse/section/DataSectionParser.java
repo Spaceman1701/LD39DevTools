@@ -50,10 +50,11 @@ public class DataSectionParser implements SectionParser{
     }
 
     private int[] stringVals(String s) {
-        int[] ints = new int[s.length()];
+        int[] ints = new int[s.length() + 1];
         for (int i = 0; i < s.length(); i++) {
             ints[i] = s.charAt(i);
         }
+        ints[s.length()] = 0;
         return ints;
     }
 

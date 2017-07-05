@@ -68,7 +68,12 @@ public class ObjectParser {
             errors.add(new ParseErrors.Error(0, "Incorrect number of sections!", 0));
         }
 
-        return new ParsedObject(infoSection, dataSection, textSection);
+        try {
+            return new ParsedObject(infoSection, dataSection, textSection);
+        } catch (SyntaxException e) {
+            errors.add(new ParseErrors.Error(0, e.getMessage(), 0));
+        }
+        return null;
     }
 
     private SectionParser createParser(String line) {

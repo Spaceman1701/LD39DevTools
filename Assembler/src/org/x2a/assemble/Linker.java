@@ -14,4 +14,18 @@ public class Linker {
     public Linker(List<ParsedObject> objects) {
         this.objects = objects;
     }
+
+
+    public byte[] assemble() throws LinkException {
+        ParsedObject startObj = null;
+        for (ParsedObject object : objects) {
+            if (!object.getInfoSection().getAutoOffset() && object.getInfoSection().getOffset() == 0) {
+                startObj = object;
+            }
+        }
+        if (startObj == null) {
+            throw new LinkException("no starting obj found");
+        }
+
+    }
 }

@@ -11,13 +11,18 @@ import java.util.Map;
  */
 public class TextSection implements Serializable, Section{
     private List<ParsedInstruction> instructions;
-    private Map<String, ParsedInstruction> symbols;
+    private final Map<String, ParsedInstruction> symbols;
 
-    public TextSection(List<ParsedInstruction> instructions) {
+    public TextSection(List<ParsedInstruction> instructions, Map<String, ParsedInstruction> symbols) {
         this.instructions = instructions;
+        this.symbols = symbols;
     }
 
     public List<ParsedInstruction> getInstructions() {
         return instructions;
+    }
+
+    public Map<String, ParsedInstruction> getSymbols() {
+        return symbols;
     }
 }
